@@ -208,11 +208,11 @@ class Character(Entity):
 
 class Tile(Entity):
   def type_to_image(self, type):
-    if type == 0:
-      return Image("tiles.png", 0, 1, 30, 30, TILE_SIZE)
-    elif type == 1:
+    if type[0] == 0:
       self.wall = True
       return Image("tiles.png", 1, 0, 30, 30, TILE_SIZE)
+    elif type[0] == 255:
+      return Image("tiles.png", 0, 1, 30, 30, TILE_SIZE)
     else:
       raise NoSuchTileException
 
@@ -255,10 +255,7 @@ class Map:
       for y in range(self.map_sz):
         rgb_val = self.map_data.get_at((x, y))
 
-        if rgb_val[0] == 0:
-          map_data[x][y] = Tile((x * self.img_sz, y * self.img_sz), 1, self.img_sz)
-        else:
-          map_data[x][y] = Tile((x * self.img_sz, y * self.img_sz), 0, self.img_sz)
+        map_data[x][y] = Tile((x * self.img_sz, y * self.img_sz), rgb_val, self.img_sz)
 
     return map_data
 
