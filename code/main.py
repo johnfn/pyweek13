@@ -1,4 +1,5 @@
 import pygame
+import time
 import spritesheet
 import os
 
@@ -6,7 +7,7 @@ import os
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
 GRAPHICS_DIR = ROOT_DIR + "data/"
 SPRITES_DIR = GRAPHICS_DIR + "sprites/"
-GRAVITY = 2
+GRAVITY = 3
 
 TILE_SIZE = 20
 SIZE = (500, 500)
@@ -23,10 +24,8 @@ class Point:
     return "<Point x:%d y:%d>" % (self.x, self.y)
 
 def sign(x):
-  if x > 0: 
-    return 1
-  if x < 0:
-    return -1
+  if x > 0: return 1
+  if x < 0: return -1
   return 0
 
 def get_tilesheet_image(file_name, pos_x, pos_y, img_sz):
@@ -36,7 +35,7 @@ def get_tilesheet_image(file_name, pos_x, pos_y, img_sz):
     get_tilesheet_image.loaded_sheets[file_name] = [[new_sheet.image_at((x, y, img_sz, img_sz), colorkey=(255,255,255))
                                                       for y in range(0, height, img_sz)] for x  in range(0, width, img_sz)]
 
-  return get_tilesheet_image.loaded_sheets[file_name][pos_x][pos_y]    
+  return get_tilesheet_image.loaded_sheets[file_name][pos_x][pos_y]
 
 get_tilesheet_image.loaded_sheets = {}
 
@@ -140,44 +139,65 @@ class Character(Entity):
   def __init__(self, x, y, size):
     Entity.__init__(self, x, y, size)
 
-    self.x = x
-    self.y = y
+    self.on_ground = False
     self.v = [0, 0]
     self.side_accel = 1.1
     self.side_max   = 5
-    self.decel = [ 0.75, 0.75 ]
+    self.decel = [ 0.65, 1 ]
+    self.jump_height = 25
+    self.move_speed = 8
 
     self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE)
+
+  def touching_wall(self, entities):
+    return len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_entity(self))) > 0
+
+  def touching_ground(self, entities):
+    feet = [ Point(self.x +             2, self.y + self.size)
+           , Point(self.x + self.size - 2, self.y + self.size)
+           ]
+
+    for foot in feet:
+      if len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_point(foot))) > 0:
+        return True
+
+    return False
+
+  def resolve_collision(self, entities, vx, vy):
+    had_collision = False
+
+    while self.touching_wall(entities) and abs(vy) > 0:
+      had_collision = True
+      self.y -= sign(vy)
+      vy -= sign(vy)
+
+    return had_collision
 
   def update(self, entities):
     keys = pygame.key.get_pressed()
 
-    vx  = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
+    vx  = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * self.move_speed
     vx *= self.side_accel
     self.v[0] *= self.decel[0]
     self.v[0] += bound(vx, self.side_max)
 
-    vy  = keys[pygame.K_UP]
-    self.v[1] *= self.decel[1]
-    if vy:
-      self.v[1] = -vy * 10
-
+    self.v[1] -= keys[pygame.K_UP] * self.jump_height if self.on_ground else 0
     self.v[1] += GRAVITY
 
     self.x += self.v[0]
 
     self.v = [int(v) for v in self.v]
 
+    self.y += self.v[1]
 
-    print self.v[1]
-    if len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_entity(self))) == 0 and abs(self.v[1]) > 0:
-      self.y += sign(self.v[1])
-      self.v[1] -= sign(self.v[1])
+    self.on_ground = self.touching_ground(entities)
 
-    #TODO: Kinda hacky. Also, it doesn't work.
-    self.y -= sign(self.v[1])
+    if self.resolve_collision(entities, 0, self.v[1]):
+      self.v[1] = 0
 
     self.sprite.set_position((self.x,self.y))
+
+    print self.on_ground
 
   def render(self, screen):
     self.sprite.render(screen)
@@ -235,7 +255,7 @@ class Game:
   def __init__(self):
     self.entities = EntityManager()
 
-    self.entities.add(Character(30, 330, 20))
+    self.entities.add(Character(30, 300, 20))
     self.map = Map(TILE_SIZE)
     self.map.new_map(self.entities)
 
@@ -250,6 +270,7 @@ class Game:
       screen.fill((0,0,0))
       self.entities.render(screen)
       pygame.display.flip()
+      time.sleep(.02) #TODO: Fix with variable timestep.
 
 def main():
   game = Game()
