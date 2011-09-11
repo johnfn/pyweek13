@@ -15,8 +15,6 @@ TILE_SIZE = 20
 SIZE = (500, 500)
 MAP_SIZE = 20
  
-screen = pygame.display.set_mode(SIZE)
-
 """ DECORATORS"""
 
 component = lambda decorator: lambda *args, **kwargs: lambda func: decorator(func, *args, **kwargs)
@@ -358,6 +356,8 @@ class Graphics:
 
 class Game:
   def __init__(self):
+    self.screen = pygame.display.set_mode(SIZE)
+
     self.entities = EntityManager()
 
     self.entities.add(Character(21, 20, TILE_SIZE))
@@ -374,8 +374,10 @@ class Game:
 
       self.entities.update()
 
-      screen.fill((0,0,0))
-      self.entities.render(screen)
+      self.screen.fill((0,0,0))
+      self.entities.render(self.screen)
+
+      # self.screen = Graphics.postprocess(self.screen)
       pygame.display.flip()
       time.sleep(.02) #TODO: Fix with variable timestep.
 
