@@ -1,4 +1,5 @@
 import pygame
+import math
 import time
 import spritesheet
 import os
@@ -32,9 +33,6 @@ def fallable(klass, gravity=GRAVITY):
     klass.update(self, entities)
 
   return extend(klass, 'fallable', update)
-
-
-
 
 class Point:
   def __init__(self, x, y):
@@ -101,6 +99,11 @@ class EntityManager:
     for entity in self.entities:
       entity.render(screen)
 
+  def get_one(self, func):
+    results = [entity for entity in self.entities if func(entity)]
+    assert len(results) == 1
+    return results[0]
+
   def get_all(self, func):
     return [entity for entity in self.entities if func(entity)]
 
@@ -108,7 +111,7 @@ class EntityManager:
     """Delete all enetities E such that func(E) == True """
 
     entities_remaining = []
-    for entity in entities:
+    for entity in self.entities:
       if not func(entity):
         entities_remaining.append(entity)
 
@@ -207,6 +210,8 @@ class Character(Entity):
   def update(self, entities):
     keys = pygame.key.get_pressed()
 
+    map = entities.get_one(lambda e: isinstance(e, Map))
+
     vx  = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * self.move_speed
     vx *= self.side_accel
     self.v[0] *= self.decel[0]
@@ -215,12 +220,24 @@ class Character(Entity):
     self.v[1] -= keys[pygame.K_UP] * self.jump_height if self.on_ground else 0
 
     self.x += self.v[0]
+
+    map_dx = int(math.floor(self.x / map.size))
+
+    if map_dx != 0:
+      map.new_map(entities, map_dx, 0, rel=True)
+      self.x -= map_dx * map.size
+
     if self.resolve_collision(entities, self.v[0], 0):
       self.v[0] = 0
 
     self.v = [int(v) for v in self.v]
 
     self.y += self.v[1]
+
+    map_dy = int(math.floor(self.y / map.size))
+    if map_dy != 0:
+      map.new_map(entities, 0, map_dy, rel=True)
+      self.x -= map_dx * map.size
 
     self.on_ground = self.touching_ground(entities)
 
@@ -260,15 +277,42 @@ class Tile(Entity):
   def render(self, screen):
     self.sprite.render(screen)
 
-class Map:
-  def __init__(self, img_sz, map_sz):
+class Map(Entity):
+  def __init__(self, img_sz, map_sz, file_name):
+    self.mapx = None
+    self.mapy = None
+
     self.img_sz = img_sz
     self.map_sz = map_sz
+    self.file_name = file_name
 
-  def new_map(self, file_name, entity_manager):
-    self.map_data = get_tilesheet_image(MAP_DIR + file_name, 0, 0, self.map_sz)
+    Entity.__init__(self, 0, 0, img_sz * map_sz)
 
-    #TODO: Destroy all old Tiles.
+  def update(self, entities):
+    pass
+
+  def render(self, screen):
+    pass
+
+  def new_map(self, entity_manager, x, y, **kwargs):
+    assert isinstance(x, int)
+    assert isinstance(y, int)
+
+    if kwargs["rel"] == True:
+      assert (x != 0 or y != 0)
+      assert not (x != 0 and y != 0)
+      # assert (x != 0 xor y != 0) lol
+
+      self.mapx += x
+      self.mapy += y
+    else:
+      self.mapx = x
+      self.mapy = y
+
+    self.map_data = get_tilesheet_image(MAP_DIR + self.file_name, self.mapx, self.mapy, self.map_sz)
+
+    entity_manager.delete_all(lambda e: isinstance(e, Tile))
+
     self.map = self.make_map()
 
     for tile_row in self.map:
@@ -286,13 +330,27 @@ class Map:
 
     return map_data
 
+class Graphics:
+  """This 'class' isn't really a class at all but more of a namespace for
+  Graphics related functions."""
+
+  @staticmethod
+  def post_process(screen):
+    rgbarray = surfarray.array3d(surfarray)
+    redimg = N.array(rgbarray)
+    redimg[:,:,1:] = 0
+
+    return surfarray.make_surface(rgbarray)
+
 class Game:
   def __init__(self):
     self.entities = EntityManager()
 
     self.entities.add(Character(21, 20, TILE_SIZE))
-    self.map = Map(TILE_SIZE, MAP_SIZE)
-    self.map.new_map("map.png", self.entities)
+    self.map = Map(TILE_SIZE, MAP_SIZE, "map.png")
+    self.map.new_map(self.entities, 0, 0, rel=False)
+
+    self.entities.add(self.map)
 
   def main_loop(self):
     while True:
