@@ -1,15 +1,21 @@
 import pygame
+import numpy as N
 import math
 import time
 import spritesheet
 import os
 
 # Convention: directories will always have trailing slash.
+
+DEBUG = False
+
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
 GRAPHICS_DIR = ROOT_DIR + "data/"
 SPRITE_DIR = GRAPHICS_DIR + "sprites/"
 MAP_DIR = GRAPHICS_DIR + "maps/"
 GRAVITY = 3
+
+UNCOLORED = 0
 
 TILE_SIZE = 20
 SIZE = (500, 500)
@@ -53,22 +59,58 @@ def sign(x):
   if x < 0: return -1
   return 0
 
-def get_tilesheet_image(file_name, pos_x, pos_y, img_sz):
-  if file_name not in get_tilesheet_image.loaded_sheets:
+
+class BigMap:
+  def __init__(self):
+    self.contents = {}
+
+  def keys_to_key(self, *keys):
+    return "-".join([str(x) for x in keys])
+
+  def put(self, value, *keys):
+    self.contents[self.keys_to_key(keys)] = value
+
+  def get(self, *keys):
+    return self.contents[self.keys_to_key(keys)]
+
+  def has(self, *keys):
+    return self.keys_to_key(keys) in self.contents
+
+#TODO: file_name -> just the "name.png" part, not the entire directory, when storing in BigMap.
+def get_tilesheet_image(file_name, pos_x, pos_y, img_sz, saturation):
+
+  if not get_tilesheet_image.loaded_sheets.has(file_name, pos_x, pos_y, saturation):
     new_sheet = spritesheet.spritesheet(file_name)
     width, height = dimensions = new_sheet.sheet.get_size()
-    get_tilesheet_image.loaded_sheets[file_name] = [[new_sheet.image_at((x, y, img_sz, img_sz), colorkey=(255,255,255))
-                                                      for y in range(0, height, img_sz)] for x  in range(0, width, img_sz)]
+    images = [[new_sheet.image_at((x, y, img_sz, img_sz), colorkey=(255,255,255))
+            for y in range(0, height, img_sz)] for x in range(0, width, img_sz)]
 
-  return get_tilesheet_image.loaded_sheets[file_name][pos_x][pos_y]
+    sat_levels = [UNCOLORED, 1]
 
-get_tilesheet_image.loaded_sheets = {}
+    for r in sat_levels:
+      for g in sat_levels:
+        for b in sat_levels:
+          rgb = [r,g,b]
+
+          # O(N^5) SUCKA!!!!! (Not really.)
+
+          for img_x in range(0, width/img_sz):
+            for img_y in range(0, height/img_sz):
+              img = images[img_x][img_y]
+              get_tilesheet_image.loaded_sheets.put(Graphics.colorize(img, rgb), file_name, img_x, img_y, rgb)
+
+  return get_tilesheet_image.loaded_sheets.get(file_name, pos_x, pos_y, saturation)
+
+get_tilesheet_image.loaded_sheets = BigMap()
 
 # Expect this class to get bigger. Lol.
 class Image:
   """An image that exists in the current room. """
-  def __init__(self, file_name, file_pos_x, file_pos_y, my_x, my_y, img_sz):
-    self.img = get_tilesheet_image(SPRITE_DIR + file_name, file_pos_x, file_pos_y, img_sz)
+  def __init__(self, file_name, file_pos_x, file_pos_y, my_x, my_y, img_sz, saturation=None):
+    if saturation is None:
+      saturation = [UNCOLORED, UNCOLORED, UNCOLORED]
+
+    self.img = get_tilesheet_image(SPRITE_DIR + file_name, file_pos_x, file_pos_y, img_sz, saturation)
 
     #Pygame makes you hangle images and their rects separately, it's kinda stupid.
     self.rect = self.img.get_rect()
@@ -321,7 +363,7 @@ class Map(Entity):
       self.mapx = x
       self.mapy = y
 
-    self.map_data = get_tilesheet_image(MAP_DIR + self.file_name, self.mapx, self.mapy, self.map_sz)
+    self.map_data = get_tilesheet_image(MAP_DIR + self.file_name, self.mapx, self.mapy, self.map_sz, [1,1,1])
 
     entity_manager.delete_all(lambda e: isinstance(e, Tile))
 
@@ -348,11 +390,41 @@ class Graphics:
 
   @staticmethod
   def post_process(screen):
-    rgbarray = surfarray.array3d(surfarray)
+    rgbarray = pygame.surfarray.array3d(screen)
     redimg = N.array(rgbarray)
-    redimg[:,:,1:] = 0
+    redimg[:,1:,:] = 0
 
-    return surfarray.make_surface(rgbarray)
+    return pygame.surfarray.make_surface(rgbarray)
+
+  @staticmethod
+  def colorize(surf, rgb):
+    """Given a surf SURF and rgb array RGB=[R,G,B] representing whether (for
+    instance) the R channel should be shown or not, returns a new surface with
+    only the desired color channels visible. R,G,B should only be 0 or 1."""
+
+    #GOD this method is slow.
+    if DEBUG:
+      return surf
+
+    dr, dg, db = rgb
+
+    surf.lock()
+
+    rgbimg = pygame.surfarray.array3d(surf)
+    rgbarray = N.array(rgbimg)
+
+    for x, s in enumerate(rgbarray):
+      for y, t in enumerate(s):
+        r, g, b = t
+        if dr == dg == db == UNCOLORED:
+          lum = int(0.3 * r + 0.59 * g + 0.11 * b)
+          rgbarray[x][y] = [lum, lum, lum]
+
+        else:
+          rgbarray[x][y] = [dr * r, dg * g, db * b]
+
+    surf.unlock()
+    return pygame.surfarray.make_surface(rgbarray).convert()
 
 class Game:
   def __init__(self):
@@ -365,6 +437,7 @@ class Game:
     self.map.new_map(self.entities, 0, 0, rel=False)
 
     self.entities.add(self.map)
+    print "Done loading."
 
   def main_loop(self):
     while True:
@@ -377,7 +450,6 @@ class Game:
       self.screen.fill((0,0,0))
       self.entities.render(self.screen)
 
-      # self.screen = Graphics.postprocess(self.screen)
       pygame.display.flip()
       time.sleep(.02) #TODO: Fix with variable timestep.
 
