@@ -4,22 +4,14 @@ import os
 
 # Convention: directories will always have trailing slash.
 ROOT_DIR = os.getcwd() + "/../"
-GRAPHICS_DIR = ROOT_DIR + "data/sprites/"
+GRAPHICS_DIR = ROOT_DIR + "data/"
+SPRITES_DIR = GRAPHICS_DIR + "sprites/"
 
 TILE_SIZE = 20
 SIZE = (500, 500)
 MAP_SIZE = 20
  
 screen = pygame.display.set_mode(SIZE)
-
-#TODO: Move to map class once we actually start developing that functionality.
-def make_map():
-  map = [[0 for x in range(MAP_SIZE)] for y in range(MAP_SIZE)]
-
-  for x in range(20):
-    map[18][x] = 1
-
-
 
 def get_tilesheet_image(file_name, pos_x, pos_y, img_sz):
   if file_name not in get_tilesheet_image.loaded_sheets:
@@ -36,7 +28,7 @@ get_tilesheet_image.loaded_sheets = {}
 class Image:
   """An image that exists in the current room. """
   def __init__(self, file_name, file_pos_x, file_pos_y, my_x, my_y, img_sz):
-    self.img = get_tilesheet_image(file_name, file_pos_x, file_pos_y, img_sz)
+    self.img = get_tilesheet_image(SPRITES_DIR + file_name, file_pos_x, file_pos_y, img_sz)
 
     #Pygame makes you hangle images and their rects separately, it's kinda stupid.
     self.rect = self.img.get_rect()
@@ -46,9 +38,9 @@ class Image:
   def get_position(self):
     return (self.rect.x, self.rect.y)
 
-  def set_position(self, x, y):
-    self.rect.x = x
-    self.rect.y = y
+  def set_position(self, position):
+    self.rect.x = position[0]
+    self.rect.y = position[1]
 
   def render(self, screen):
     screen.blit(self.img, self.rect)
@@ -71,6 +63,19 @@ class EntityManager:
     for entity in self.entities:
       entity.render(screen)
 
+  def get_all(self, func):
+    return [entity for entity in self.entities if func(entity)]
+
+  def delete_all(self, func):
+    """Delete all enetities E such that func(E) == True """
+
+    entities_remaining = []
+    for entity in entities:
+      if not func(entity):
+        entities_remaining.append(entity)
+
+    self.entities = entities_remaining
+
 class Entity:
   def update(self):
     raise NotImplementedException
@@ -80,7 +85,7 @@ class Entity:
 
 class Character(Entity):
   def __init__(self):
-    self.sprite = Image(GRAPHICS_DIR + "tiles.png", 0, 0, 30, 30, TILE_SIZE)
+    self.sprite = Image("tiles.png", 0, 0, 30, 30, TILE_SIZE)
 
   def update(self):
     #look for keys...blabla
@@ -89,12 +94,57 @@ class Character(Entity):
   def render(self, screen):
     self.sprite.render(screen)
 
+class Tile(Entity):
+  def type_to_image(self, type):
+    if type == 0:
+      return Image("tiles.png", 0, 1, 30, 30, TILE_SIZE)
+    elif type == 1:
+      return Image("tiles.png", 1, 0, 30, 30, TILE_SIZE)
+    else:
+      raise NoSuchTileException
+
+  def __init__(self, position, type):
+    self.sprite = self.type_to_image(type)
+    self.sprite.set_position(position)
+
+  def get_position(self): 
+    return self.sprite.get_position()
+
+  def update(self):
+    pass
+
+  def render(self, screen):
+    self.sprite.render(screen)
+
+class Map:
+  def __init__(self):
+    pass
+
+  def new_map(self, entity_manager):
+    #TODO: Destroy all old Tiles.
+    self.map = self.make_map()
+
+    for tile_row in self.map:
+      for tile in tile_row:
+        entity_manager.add(tile)
+
+  #TODO: This method is totally bogus
+  def make_map(self):
+    #TODO: Should have no notion of 20.
+    map_data = [[Tile((x * 20, y * 20), 0) for x in range(MAP_SIZE)] for y in range(MAP_SIZE)]
+
+    for x in range(MAP_SIZE):
+      map_data[18][x] = Tile(map_data[18][x].get_position(), 1)
+
+    return map_data
+
 class Game:
   def __init__(self):
-    self.map = make_map()
     self.entities = EntityManager()
 
     self.entities.add(Character())
+    self.map = Map()
+    self.map.new_map(self.entities)
 
   def main_loop(self):
     while True:
