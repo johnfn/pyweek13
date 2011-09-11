@@ -58,8 +58,10 @@ class EntityManager:
     for entity in self.entities:
       entity.update()
 
-  #TODO: (maybe) Sort by depth.
   def render(self, screen):
+    # Sort by depth, if the entities have it.
+    self.entities = sorted(self.entities, key=lambda entity: entity.depth() if hasattr(entity, 'depth') else -99999)
+
     for entity in self.entities:
       entity.render(screen)
 
@@ -84,15 +86,26 @@ class Entity:
     raise NotImplementedException
 
 class Character(Entity):
-  def __init__(self):
-    self.sprite = Image("tiles.png", 0, 0, 30, 30, TILE_SIZE)
+  def __init__(self, x, y):
+    self.x = x
+    self.y = y
+
+    self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE)
 
   def update(self):
-    #look for keys...blabla
-    pass
+    keys = pygame.key.get_pressed()
+
+    vx = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
+
+    self.x += vx
+
+    self.sprite.set_position((self.x,self.y))
 
   def render(self, screen):
     self.sprite.render(screen)
+
+  def depth(self):
+    return 0
 
 class Tile(Entity):
   def type_to_image(self, type):
@@ -142,7 +155,7 @@ class Game:
   def __init__(self):
     self.entities = EntityManager()
 
-    self.entities.add(Character())
+    self.entities.add(Character(30, 30))
     self.map = Map()
     self.map.new_map(self.entities)
 
@@ -152,11 +165,11 @@ class Game:
         if event.type == pygame.QUIT:
           exit(0)
 
-        self.entities.update()
+      self.entities.update()
 
-        screen.fill((0,0,0))
-        self.entities.render(screen)
-        pygame.display.flip()
+      screen.fill((0,0,0))
+      self.entities.render(screen)
+      pygame.display.flip()
 
 def main():
   game = Game()
