@@ -19,7 +19,7 @@ screen = pygame.display.set_mode(SIZE)
 
 """ DECORATORS"""
 
-meta = lambda decorator: lambda *args, **kwargs: lambda func: decorator(func, *args, **kwargs)
+component = lambda decorator: lambda *args, **kwargs: lambda func: decorator(func, *args, **kwargs)
 
 def extend(klass, name, *args, **kwargs):
   components = getattr(klass, 'components', [])[:]
@@ -34,7 +34,7 @@ def extend(klass, name, *args, **kwargs):
   new_type = type(klass)(name, (klass,), methods)
   return new_type
 
-@meta
+@component
 def fallable(klass, gravity=GRAVITY):
   def update(self, entities):
     self.v[1] += gravity
