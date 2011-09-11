@@ -13,6 +13,14 @@ MAP_SIZE = 20
  
 screen = pygame.display.set_mode(SIZE)
 
+class Point:
+  def __init__(self, x, y):
+    self.x = x
+    self.y = y
+
+  def __str__(self):
+    return "<Point x:%d y:%d>" % (self.x, self.y)
+
 def get_tilesheet_image(file_name, pos_x, pos_y, img_sz):
   if file_name not in get_tilesheet_image.loaded_sheets:
     new_sheet = spritesheet.spritesheet(file_name)
@@ -56,7 +64,7 @@ class EntityManager:
 
   def update(self):
     for entity in self.entities:
-      entity.update()
+      entity.update(self)
 
   def render(self, screen):
     # Sort by depth, if the entities have it.
@@ -79,25 +87,58 @@ class EntityManager:
     self.entities = entities_remaining
 
 class Entity:
-  def update(self):
+  def touches_point(self, point):
+    return self.x <= point.x <= self.x + self.size and\
+           self.y <= point.y <= self.y + self.size
+
+  def touches_entity(self, other):
+    assert self.x is not None
+    assert other.x is not None
+
+    points = [ (self.x, self.y)
+             , (self.x + self.size, self.y)
+             , (self.x,             self.y + self.size)
+             , (self.x + self.size, self.y + self.size)
+             ]
+
+    points = [Point(*p) for p in points]
+
+    for point in points:
+      if other.touches_point(point):
+        print point
+        return True
+
+    return False
+
+  def __init__(self, x, y, size):
+    self.x = x
+    self.y = y
+    self.size = size
+
+  def update(self, entities):
     raise NotImplementedException
 
   def render(self, screen):
     raise NotImplementedException
 
 class Character(Entity):
-  def __init__(self, x, y):
+  def __init__(self, x, y, size):
+    Entity.__init__(self, x, y, size)
+
     self.x = x
     self.y = y
 
     self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE)
 
-  def update(self):
+  def update(self, entities):
     keys = pygame.key.get_pressed()
 
     vx = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
 
     self.x += vx
+
+    if len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_entity(self))) > 0:
+      print "Touching wall"
 
     self.sprite.set_position((self.x,self.y))
 
@@ -112,18 +153,21 @@ class Tile(Entity):
     if type == 0:
       return Image("tiles.png", 0, 1, 30, 30, TILE_SIZE)
     elif type == 1:
+      self.wall = True
       return Image("tiles.png", 1, 0, 30, 30, TILE_SIZE)
     else:
       raise NoSuchTileException
 
-  def __init__(self, position, type):
+  def __init__(self, position, type, size):
+    Entity.__init__(self, position[0], position[1], size)
+
     self.sprite = self.type_to_image(type)
     self.sprite.set_position(position)
 
   def get_position(self): 
     return self.sprite.get_position()
 
-  def update(self):
+  def update(self, entities):
     pass
 
   def render(self, screen):
@@ -144,10 +188,10 @@ class Map:
   #TODO: This method is totally bogus
   def make_map(self):
     #TODO: Should have no notion of 20.
-    map_data = [[Tile((x * 20, y * 20), 0) for x in range(MAP_SIZE)] for y in range(MAP_SIZE)]
+    map_data = [[Tile((x * 20, y * 20), 0, 20) for x in range(MAP_SIZE)] for y in range(MAP_SIZE)]
 
     for x in range(MAP_SIZE):
-      map_data[18][x] = Tile(map_data[18][x].get_position(), 1)
+      map_data[18][x] = Tile(map_data[18][x].get_position(), 1, 20)
 
     return map_data
 
@@ -155,7 +199,7 @@ class Game:
   def __init__(self):
     self.entities = EntityManager()
 
-    self.entities.add(Character(30, 30))
+    self.entities.add(Character(30, 330, 20))
     self.map = Map()
     self.map.new_map(self.entities)
 
