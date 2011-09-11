@@ -16,6 +16,7 @@ MAP_DIR = GRAPHICS_DIR + "maps/"
 GRAVITY = 3
 
 UNCOLORED = 0
+COLORED = 1
 
 TILE_SIZE = 20
 SIZE = (500, 500)
@@ -108,7 +109,9 @@ class Image:
   """An image that exists in the current room. """
   def __init__(self, file_name, file_pos_x, file_pos_y, my_x, my_y, img_sz, saturation=None):
     if saturation is None:
-      saturation = [UNCOLORED, UNCOLORED, UNCOLORED]
+      saturation = [COLORED, UNCOLORED, UNCOLORED]
+
+    assert(isinstance(saturation, list))
 
     self.img = get_tilesheet_image(SPRITE_DIR + file_name, file_pos_x, file_pos_y, img_sz, saturation)
 
@@ -224,7 +227,7 @@ class Character(Entity):
     self.jump_height = 25
     self.move_speed = 8
 
-    self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE)
+    self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE, [COLORED, UNCOLORED, UNCOLORED])
 
   def touching_wall(self, entities):
     return len(entities.get_all(lambda e: hasattr(e, "wall") and self.touches_entity(e))) > 0
@@ -406,22 +409,29 @@ class Graphics:
     if DEBUG:
       return surf
 
-    dr, dg, db = rgb
+    dr, dg, db = rgb # desaturation values.
 
     surf.lock()
 
     rgbimg = pygame.surfarray.array3d(surf)
     rgbarray = N.array(rgbimg)
 
+    #TODO: Cite source.
+
     for x, s in enumerate(rgbarray):
       for y, t in enumerate(s):
         r, g, b = t
-        if dr == dg == db == UNCOLORED:
-          lum = int(0.3 * r + 0.59 * g + 0.11 * b)
-          rgbarray[x][y] = [lum, lum, lum]
+        lum = int(0.3 * r + 0.59 * g + 0.11 * b)
 
-        else:
-          rgbarray[x][y] = [dr * r, dg * g, db * b]
+        resultant = []
+        for desat_val, actual_val in zip(rgb, t):
+          if desat_val == UNCOLORED:
+            resultant.append(lum)
+          else:
+            resultant.append(actual_val)
+
+        rgbarray[x][y] = resultant
+
 
     surf.unlock()
     return pygame.surfarray.make_surface(rgbarray).convert()
