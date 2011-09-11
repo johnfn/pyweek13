@@ -3,7 +3,7 @@ import spritesheet
 import os
 
 # Convention: directories will always have trailing slash.
-ROOT_DIR = os.getcwd() + "/../"
+ROOT_DIR = os.path.dirname(__file__) + "/../"
 GRAPHICS_DIR = ROOT_DIR + "data/"
 SPRITES_DIR = GRAPHICS_DIR + "sprites/"
 
@@ -174,8 +174,8 @@ class Tile(Entity):
     self.sprite.render(screen)
 
 class Map:
-  def __init__(self):
-    pass
+  def __init__(self, img_sz):
+    self.img_sz = img_sz
 
   def new_map(self, entity_manager):
     #TODO: Destroy all old Tiles.
@@ -187,11 +187,10 @@ class Map:
 
   #TODO: This method is totally bogus
   def make_map(self):
-    #TODO: Should have no notion of 20.
-    map_data = [[Tile((x * 20, y * 20), 0, 20) for x in range(MAP_SIZE)] for y in range(MAP_SIZE)]
+    map_data = [[Tile((x * self.img_sz, y * self.img_sz), 0, self.img_sz) for x in range(MAP_SIZE)] for y in range(MAP_SIZE)]
 
     for x in range(MAP_SIZE):
-      map_data[18][x] = Tile(map_data[18][x].get_position(), 1, 20)
+      map_data[18][x] = Tile(map_data[18][x].get_position(), 1, self.img_sz)
 
     return map_data
 
@@ -200,7 +199,7 @@ class Game:
     self.entities = EntityManager()
 
     self.entities.add(Character(30, 330, 20))
-    self.map = Map()
+    self.map = Map(TILE_SIZE)
     self.map.new_map(self.entities)
 
   def main_loop(self):
