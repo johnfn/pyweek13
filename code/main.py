@@ -1,3 +1,4 @@
+import random
 import pygame
 import numpy as N
 import math
@@ -46,6 +47,14 @@ def fallable(klass, gravity=GRAVITY):
     klass.update(self, entities)
 
   return extend(klass, 'fallable', update)
+
+@component
+def healthable(klass, health):
+  def __init__(self, *args, **kwargs):
+    klass.__init__(self, *args, **kwargs)
+    self.health = health
+
+  return extend(klass, 'healthable', __init__)
 
 class Point:
   def __init__(self, x, y):
@@ -216,6 +225,7 @@ def bound(num, asymptote):
   return num
 
 @fallable()
+@healthable(5)
 class Character(Entity):
   def __init__(self, x, y, size):
     Entity.__init__(self, x, y, size - 2)
@@ -387,6 +397,57 @@ class Map(Entity):
 
     return map_data
 
+class HPBar(Entity):
+  BORDER_WIDTH  = 2
+  BORDER_HEIGHT = 2
+  BORDER_COLOR  = pygame.Color(0, 0, 0, 0)
+  HURT_COLOR    = pygame.Color(255, 0, 0)
+  SHAKE_OFFSET  = 2
+
+  def __init__(self, entity, x=20, y=20, width=100, height=10):
+    if not entity.has('healthable'):
+        raise NotHealthableException
+    self.max_health = self.health = entity.health
+    self.width = width
+    self.height = height
+    self.time = 0
+    self.x = x
+    self.y = y
+    self.offset = (0, 0)
+    self.color = pygame.Color(0x0000)
+    self.update_color()
+    self.hurt_rect   = pygame.Rect(self.x, self.y, self.width, self.height)
+    self.health_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+    self.border_rect = pygame.Rect(self.x - self.BORDER_WIDTH, self.y - self.BORDER_HEIGHT,
+                                   self.width + self.BORDER_WIDTH * 2, self.height + self.BORDER_HEIGHT * 2)
+
+  def update_color(self):
+    self.color.hsla = (120 * self.health / self.max_health, 100, 50, 100)
+
+  def damage(self, num):
+    self.health -= num
+    self.health_rect.width = self.health * self.width / self.max_health
+    self.time = time.time() + 2
+
+  def update(self, entities):
+    if self.health_rect.width < self.hurt_rect.width:
+      t = time.time()
+      if self.time > t:
+        o = self.SHAKE_OFFSET
+        self.offset = (random.randint(-o, o), random.randint(-o, o))
+        self.hurt_rect.width = (self.time - t) / 2 * (self.hurt_rect.width - self.health_rect.width) + self.health_rect.width
+        self.update_color()
+      else:
+        self.offset = (0, 0)
+
+  def render(self, screen):
+    pygame.draw.rect(screen, self.BORDER_COLOR, self.border_rect.move(self.offset))
+    pygame.draw.rect(screen, self.HURT_COLOR, self.hurt_rect.move(self.offset))
+    pygame.draw.rect(screen, self.color, self.health_rect.move(self.offset))
+
+  def depth(self):
+    return 100
+
 class Graphics:
   """This 'class' isn't really a class at all but more of a namespace for
   Graphics related functions."""
@@ -442,7 +503,11 @@ class Game:
 
     self.entities = EntityManager()
 
-    self.entities.add(Character(21, 20, TILE_SIZE))
+    character = Character(21, 20, TILE_SIZE)
+    self.entities.add(character)
+    hpbar = HPBar(character)
+    self.entities.add(hpbar)
+    hpbar.damage(4)
     self.map = Map(TILE_SIZE, MAP_SIZE, "map.png")
     self.map.new_map(self.entities, 0, 0, rel=False)
 
