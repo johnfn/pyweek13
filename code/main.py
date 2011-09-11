@@ -121,21 +121,42 @@ class Entity:
   def render(self, screen):
     raise NotImplementedException
 
+def bound(num, asymptote):
+  a = abs(asymptote)
+  if num < -a:
+    return -a
+  elif num > a:
+    return a
+  return num
+
 class Character(Entity):
   def __init__(self, x, y, size):
     Entity.__init__(self, x, y, size)
 
     self.x = x
     self.y = y
+    self.v = [0, 0]
+    self.side_accel = 1.1
+    self.side_max   = 5
+    self.decel = [ 0.75, 0.75 ]
 
     self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE)
 
   def update(self, entities):
     keys = pygame.key.get_pressed()
 
-    vx = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
+    vx  = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
+    vx *= self.side_accel
+    self.v[0] *= self.decel[0]
+    self.v[0] += bound(vx, self.side_max)
 
-    self.x += vx
+    vy  = keys[pygame.K_UP]
+    self.v[1] *= self.decel[1]
+    if vy:
+      self.v[1] = -vy * 10
+
+    self.x += self.v[0]
+    self.y += self.v[1]
 
     if len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_entity(self))) > 0:
       print "Touching wall"
