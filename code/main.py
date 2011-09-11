@@ -140,6 +140,7 @@ class Character(Entity):
   def __init__(self, x, y, size):
     Entity.__init__(self, x, y, size)
 
+    
     self.on_ground = False
     self.v = [0, 0]
     self.side_accel = 1.1
@@ -165,12 +166,23 @@ class Character(Entity):
     return False
 
   def resolve_collision(self, entities, vx, vy):
+    assert not (vx != 0 and vy != 0) #Doing both at once is bad!
+
     had_collision = False
+
+    # Design note: we could abstract this into v[0] and v[1] and not dupe this
+    # code; however I feel that v[0] is harder to understand and the actual
+    # amount of duped code is small.
 
     while self.touching_wall(entities) and abs(vy) > 0:
       had_collision = True
       self.y -= sign(vy)
       vy -= sign(vy)
+
+    while self.touching_wall(entities) and abs(vx) > 0:
+      had_collision = True
+      self.x -= sign(vx)
+      vx -= sign(vx)
 
     return had_collision
 
@@ -186,6 +198,8 @@ class Character(Entity):
     self.v[1] += GRAVITY
 
     self.x += self.v[0]
+    if self.resolve_collision(entities, self.v[0], 0):
+      self.v[0] = 0
 
     self.v = [int(v) for v in self.v]
 
@@ -263,7 +277,7 @@ class Game:
   def __init__(self):
     self.entities = EntityManager()
 
-    self.entities.add(Character(30, 300, 20))
+    self.entities.add(Character(21, 20, TILE_SIZE))
     self.map = Map(TILE_SIZE, MAP_SIZE)
     self.map.new_map("map.png", self.entities)
 
