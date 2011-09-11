@@ -3,9 +3,10 @@ import spritesheet
 import os
 
 # Convention: directories will always have trailing slash.
-ROOT_DIR = os.path.dirname(__file__) + "/../"
+ROOT_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
 GRAPHICS_DIR = ROOT_DIR + "data/"
 SPRITES_DIR = GRAPHICS_DIR + "sprites/"
+GRAVITY = 2
 
 TILE_SIZE = 20
 SIZE = (500, 500)
@@ -20,6 +21,13 @@ class Point:
 
   def __str__(self):
     return "<Point x:%d y:%d>" % (self.x, self.y)
+
+def sign(x):
+  if x > 0: 
+    return 1
+  if x < 0:
+    return -1
+  return 0
 
 def get_tilesheet_image(file_name, pos_x, pos_y, img_sz):
   if file_name not in get_tilesheet_image.loaded_sheets:
@@ -105,7 +113,6 @@ class Entity:
 
     for point in points:
       if other.touches_point(point):
-        print point
         return True
 
     return False
@@ -155,11 +162,20 @@ class Character(Entity):
     if vy:
       self.v[1] = -vy * 10
 
-    self.x += self.v[0]
-    self.y += self.v[1]
+    self.v[1] += GRAVITY
 
-    if len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_entity(self))) > 0:
-      print "Touching wall"
+    self.x += self.v[0]
+
+    self.v = [int(v) for v in self.v]
+
+
+    print self.v[1]
+    if len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_entity(self))) == 0 and abs(self.v[1]) > 0:
+      self.y += sign(self.v[1])
+      self.v[1] -= sign(self.v[1])
+
+    #TODO: Kinda hacky. Also, it doesn't work.
+    self.y -= sign(self.v[1])
 
     self.sprite.set_position((self.x,self.y))
 
