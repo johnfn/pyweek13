@@ -532,14 +532,24 @@ class Text(Entity):
 
     self.width = 200
     self.height = 30
-    self.contents = contents
+    self.end_contents = contents
+    self.cur_contents = ""
     self.font = FontManager.get("FreeSansBold.ttf")
     self.fontcolor = fontcolor
     self.follow = follow
+    self.dist = 0
+    self.ticks = 0
+
+    self.speed = 5
 
   def update(self, entities):
     # letter by letter, skip to end if player hits x
-    pass
+    if self.dist < len(self.end_contents):
+      self.ticks += 1
+      if self.ticks % self.speed == 0:
+        self.dist += 1 
+
+        self.cur_contents = self.end_contents[:self.dist]
 
   def depth(self):
     return 0
@@ -548,7 +558,7 @@ class Text(Entity):
     fontrect = pygame.Rect((self.follow.x - self.width / 2, self.follow.y - self.follow.size - self.height, self.width, self.height))
 
     try:
-      rendered_text = render_textrect(self.contents, self.font, fontrect, self.fontcolor, (255,255,255), justification=1)
+      rendered_text = render_textrect(self.cur_contents, self.font, fontrect, self.fontcolor, (255,255,255), justification=1)
     except TextRectException:
       print "Failed to render textbox."
     else:
