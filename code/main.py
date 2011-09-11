@@ -129,7 +129,7 @@ class Entity(object):
   components = []
 
   @classmethod
-  def is_a(cls, a):
+  def has(cls, a):
     return a in cls.components
 
   def touches_point(self, point):
