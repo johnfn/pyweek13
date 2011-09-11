@@ -6,7 +6,8 @@ import os
 # Convention: directories will always have trailing slash.
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
 GRAPHICS_DIR = ROOT_DIR + "data/"
-SPRITES_DIR = GRAPHICS_DIR + "sprites/"
+SPRITE_DIR = GRAPHICS_DIR + "sprites/"
+MAP_DIR = GRAPHICS_DIR + "maps/"
 GRAVITY = 3
 
 TILE_SIZE = 20
@@ -43,7 +44,7 @@ get_tilesheet_image.loaded_sheets = {}
 class Image:
   """An image that exists in the current room. """
   def __init__(self, file_name, file_pos_x, file_pos_y, my_x, my_y, img_sz):
-    self.img = get_tilesheet_image(SPRITES_DIR + file_name, file_pos_x, file_pos_y, img_sz)
+    self.img = get_tilesheet_image(SPRITE_DIR + file_name, file_pos_x, file_pos_y, img_sz)
 
     #Pygame makes you hangle images and their rects separately, it's kinda stupid.
     self.rect = self.img.get_rect()
@@ -231,10 +232,15 @@ class Tile(Entity):
     self.sprite.render(screen)
 
 class Map:
-  def __init__(self, img_sz):
+  def __init__(self, img_sz, map_sz):
     self.img_sz = img_sz
+    self.map_sz = map_sz
 
-  def new_map(self, entity_manager):
+  def new_map(self, file_name, entity_manager):
+    self.map_data = get_tilesheet_image(MAP_DIR + file_name, 0, 0, self.map_sz)
+
+    print self.map_data.get_at((0,0))
+
     #TODO: Destroy all old Tiles.
     self.map = self.make_map()
 
@@ -242,12 +248,17 @@ class Map:
       for tile in tile_row:
         entity_manager.add(tile)
 
-  #TODO: This method is totally bogus
   def make_map(self):
-    map_data = [[Tile((x * self.img_sz, y * self.img_sz), 0, self.img_sz) for x in range(MAP_SIZE)] for y in range(MAP_SIZE)]
+    map_data = [[None for x in range(self.map_sz)] for y in range(self.map_sz)]
 
-    for x in range(MAP_SIZE):
-      map_data[18][x] = Tile(map_data[18][x].get_position(), 1, self.img_sz)
+    for x in range(self.map_sz):
+      for y in range(self.map_sz):
+        rgb_val = self.map_data.get_at((x, y))
+
+        if rgb_val[0] == 0:
+          map_data[x][y] = Tile((x * self.img_sz, y * self.img_sz), 1, self.img_sz)
+        else:
+          map_data[x][y] = Tile((x * self.img_sz, y * self.img_sz), 0, self.img_sz)
 
     return map_data
 
@@ -256,8 +267,8 @@ class Game:
     self.entities = EntityManager()
 
     self.entities.add(Character(30, 300, 20))
-    self.map = Map(TILE_SIZE)
-    self.map.new_map(self.entities)
+    self.map = Map(TILE_SIZE, MAP_SIZE)
+    self.map.new_map("map.png", self.entities)
 
   def main_loop(self):
     while True:
