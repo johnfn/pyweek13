@@ -398,11 +398,13 @@ class Map(Entity):
     return map_data
 
 class HPBar(Entity):
-  BORDER_WIDTH  = 2
-  BORDER_HEIGHT = 2
-  BORDER_COLOR  = pygame.Color(0, 0, 0, 0)
-  HURT_COLOR    = pygame.Color(255, 0, 0)
-  SHAKE_OFFSET  = 2
+  BORDER_WIDTH   = 2
+  BORDER_HEIGHT  = 2
+  BORDER_COLOR   = pygame.Color(0, 0, 0, 0)
+  HURT_COLOR     = pygame.Color(128, 0, 0)
+  SHAKE_OFFSET   = 2
+  SHAKE_DELAY    = 2
+  SHAKE_INTERVAL = 2
 
   def __init__(self, entity, x=20, y=20, width=100, height=10):
     if not entity.has('healthable'):
@@ -425,9 +427,9 @@ class HPBar(Entity):
     self.color.hsla = (120 * self.health / self.max_health, 100, 50, 100)
 
   def damage(self, num):
-    self.health -= num
+    self.health = max(self.health - num, 0)
     self.health_rect.width = self.health * self.width / self.max_health
-    self.time = time.time() + 2
+    self.time = time.time() + self.SHAKE_DELAY
 
   def update(self, entities):
     if self.health_rect.width < self.hurt_rect.width:
@@ -435,9 +437,12 @@ class HPBar(Entity):
       if self.time > t:
         o = self.SHAKE_OFFSET
         self.offset = (random.randint(-o, o), random.randint(-o, o))
-        self.hurt_rect.width = (self.time - t) / 2 * (self.hurt_rect.width - self.health_rect.width) + self.health_rect.width
+        self.hurt_rect.width  = max(self.time - t, 0) / self.SHAKE_INTERVAL
+        self.hurt_rect.width *= self.hurt_rect.width - self.health_rect.width
+        self.hurt_rect.width += self.health_rect.width
         self.update_color()
       else:
+        self.hurt_rect.width = self.health_rect.width
         self.offset = (0, 0)
 
   def render(self, screen):
@@ -507,7 +512,6 @@ class Game:
     self.entities.add(character)
     hpbar = HPBar(character)
     self.entities.add(hpbar)
-    hpbar.damage(4)
     self.map = Map(TILE_SIZE, MAP_SIZE, "map.png")
     self.map.new_map(self.entities, 0, 0, rel=False)
 
