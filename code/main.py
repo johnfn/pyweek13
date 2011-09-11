@@ -16,6 +16,26 @@ MAP_SIZE = 20
  
 screen = pygame.display.set_mode(SIZE)
 
+""" DECORATORS"""
+
+meta = lambda decorator: lambda *args, **kwargs: lambda func: decorator(func, *args, **kwargs)
+
+def extend(klass, name, *args, **kwargs):
+  methods = dict(map(lambda m: [ m.__name__, m], args))
+  methods.update(kwargs)
+  return type(klass)(name, (klass,), methods)
+
+@meta
+def fallable(klass, gravity=GRAVITY):
+  def update(self, entities):
+    self.v[1] += gravity
+    klass.update(self, entities)
+
+  return extend(klass, 'fallable', update)
+
+
+
+
 class Point:
   def __init__(self, x, y):
     self.x = x
@@ -121,6 +141,7 @@ class Entity:
     self.x = x
     self.y = y
     self.size = size
+    self.v = [0, 0]
 
   def update(self, entities):
     raise NotImplementedException
@@ -136,16 +157,16 @@ def bound(num, asymptote):
     return a
   return num
 
+@fallable()
 class Character(Entity):
   def __init__(self, x, y, size):
     Entity.__init__(self, x, y, size)
 
     
     self.on_ground = False
-    self.v = [0, 0]
     self.side_accel = 1.1
     self.side_max   = 5
-    self.decel = [ 0.65, 1 ]
+    self.decel = [ 0.5, 1 ]
     self.jump_height = 25
     self.move_speed = 8
 
@@ -195,7 +216,6 @@ class Character(Entity):
     self.v[0] += bound(vx, self.side_max)
 
     self.v[1] -= keys[pygame.K_UP] * self.jump_height if self.on_ground else 0
-    self.v[1] += GRAVITY
 
     self.x += self.v[0]
     if self.resolve_collision(entities, self.v[0], 0):
