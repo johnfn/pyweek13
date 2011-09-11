@@ -22,9 +22,17 @@ screen = pygame.display.set_mode(SIZE)
 meta = lambda decorator: lambda *args, **kwargs: lambda func: decorator(func, *args, **kwargs)
 
 def extend(klass, name, *args, **kwargs):
+  components = getattr(klass, 'components', [])[:]
+
+  if name in components:
+    return klass
+
+  components.append(name)
   methods = dict(map(lambda m: [ m.__name__, m], args))
   methods.update(kwargs)
-  return type(klass)(name, (klass,), methods)
+  methods["components"] = components
+  new_type = type(klass)(name, (klass,), methods)
+  return new_type
 
 @meta
 def fallable(klass, gravity=GRAVITY):
@@ -117,7 +125,13 @@ class EntityManager:
 
     self.entities = entities_remaining
 
-class Entity:
+class Entity(object):
+  components = []
+
+  @classmethod
+  def is_a(cls, a):
+    return a in cls.components
+
   def touches_point(self, point):
     return self.x <= point.x <= self.x + self.size and\
            self.y <= point.y <= self.y + self.size
