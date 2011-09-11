@@ -7,7 +7,7 @@ import numpy as N
 import math
 import time
 import spritesheet
-from rendertext import render_textrect
+from rendertext import render_textrect, TextRectException
 
 #TODO: Move to untracted py file so there is no conflicts when someone changes this.
 DEBUG = True
@@ -171,6 +171,9 @@ class EntityManager:
 
   def get_all(self, func):
     return [entity for entity in self.entities if func(entity)]
+
+  def delete(self, obj):
+    self.delete_all(lambda e: obj == e)
 
   def delete_all(self, func):
     """Delete all enetities E such that func(E) == True """
@@ -532,7 +535,7 @@ class Text(Entity):
     Entity.__init__(self, follow.x, follow.y, 200)
 
     self.width = 200
-    self.height = 30
+    self.height = 60
     self.end_contents = contents
     self.cur_contents = ""
     self.font = FontManager.get("FreeSansBold.ttf")
@@ -541,16 +544,24 @@ class Text(Entity):
     self.dist = 0
     self.ticks = 0
 
-    self.speed = 5
+    self.speed = 2
 
   def update(self, entities):
     # letter by letter, skip to end if player hits x
+
+    keys = pygame.key.get_pressed()
     if self.dist < len(self.end_contents):
       self.ticks += 1
       if self.ticks % self.speed == 0:
         self.dist += 1 
 
-        self.cur_contents = self.end_contents[:self.dist]
+      if keys[pygame.K_x]:
+        self.dist = len(self.end_contents)
+
+      self.cur_contents = self.end_contents[:self.dist]
+    else:
+      if keys[pygame.K_x]:
+        entities.delete(self)
 
   def depth(self):
     return 0
@@ -559,7 +570,7 @@ class Text(Entity):
     fontrect = pygame.Rect((self.follow.x - self.width / 2, self.follow.y - self.follow.size - self.height, self.width, self.height))
 
     try:
-      rendered_text = render_textrect(self.cur_contents, self.font, fontrect, self.fontcolor, (255,255,255), justification=1)
+      rendered_text = render_textrect(self.cur_contents + " (press x)", self.font, fontrect, self.fontcolor, (255,255,255), justification=1)
     except TextRectException:
       print "Failed to render textbox."
     else:
@@ -583,7 +594,7 @@ class Game:
 
     self.entities.add(self.map)
 
-    self.entities.add(Text("Wazzup?", self.entities.get_one(lambda e: isinstance(e, Character))))
+    self.entities.add(Text("Wazzup? This text is long like longcat.", self.entities.get_one(lambda e: isinstance(e, Character))))
 
     print "Done loading."
 
