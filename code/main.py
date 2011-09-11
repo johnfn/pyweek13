@@ -231,7 +231,7 @@ class Character(Entity):
     self.v[0] *= self.decel[0]
     self.v[0] += bound(vx, self.side_max)
 
-    self.v[1] -= keys[pygame.K_UP] * self.jump_height if self.on_ground else 0
+    self.v[1] -= keys[pygame.K_z] * self.jump_height if self.on_ground else 0
 
     self.x += self.v[0]
 
