@@ -41,7 +41,7 @@ class Point:
     self.x = x
     self.y = y
 
-  def __str__(self):
+  def __repr__(self):
     return "<Point x:%d y:%d>" % (self.x, self.y)
 
 def sign(x):
@@ -123,13 +123,11 @@ class Entity:
     assert self.x is not None
     assert other.x is not None
 
-    points = [ (self.x, self.y)
-             , (self.x + self.size, self.y)
-             , (self.x,             self.y + self.size)
-             , (self.x + self.size, self.y + self.size)
+    points = [ Point(self.x,             self.y)
+             , Point(self.x + self.size, self.y)
+             , Point(self.x,             self.y + self.size)
+             , Point(self.x + self.size, self.y + self.size)
              ]
-
-    points = [Point(*p) for p in points]
 
     for point in points:
       if other.touches_point(point):
@@ -160,9 +158,8 @@ def bound(num, asymptote):
 @fallable()
 class Character(Entity):
   def __init__(self, x, y, size):
-    Entity.__init__(self, x, y, size)
+    Entity.__init__(self, x, y, size - 2)
 
-    
     self.on_ground = False
     self.side_accel = 1.1
     self.side_max   = 5
@@ -173,7 +170,7 @@ class Character(Entity):
     self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE)
 
   def touching_wall(self, entities):
-    return len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_entity(self))) > 0
+    return len(entities.get_all(lambda e: hasattr(e, "wall") and self.touches_entity(e))) > 0
 
   def touching_ground(self, entities):
     feet = [ Point(self.x +             2, self.y + self.size)
@@ -232,8 +229,6 @@ class Character(Entity):
 
     self.sprite.set_position((self.x,self.y))
 
-    print self.on_ground
-
   def render(self, screen):
     self.sprite.render(screen)
 
@@ -272,8 +267,6 @@ class Map:
 
   def new_map(self, file_name, entity_manager):
     self.map_data = get_tilesheet_image(MAP_DIR + file_name, 0, 0, self.map_sz)
-
-    print self.map_data.get_at((0,0))
 
     #TODO: Destroy all old Tiles.
     self.map = self.make_map()
