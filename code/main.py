@@ -236,9 +236,9 @@ class Character(Entity):
     Entity.__init__(self, x, y, size - 2)
 
     self.on_ground = False
-    self.side_accel = 1.1
+    self.side_accel = .5
     self.side_max   = 5
-    self.decel = [ 0.5, 1 ]
+    self.decel = [ 0.6, 1 ]
     self.jump_height = 25
     self.move_speed = 8
 
@@ -284,10 +284,13 @@ class Character(Entity):
 
     map = entities.get_one(lambda e: isinstance(e, Map))
 
-    vx  = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * self.move_speed
-    vx *= self.side_accel
-    self.v[0] *= self.decel[0]
-    self.v[0] += bound(vx, self.side_max)
+    vx = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * self.side_accel
+    if vx == 0 or sign(vx) + sign(self.v[0]) == 0:
+      self.v[0] *= self.decel[0]
+
+    if vx != 0:
+      self.v[0] += vx
+      self.v[0] = bound(self.v[0], self.move_speed)
 
     self.v[1] -= keys[pygame.K_z] * self.jump_height if self.on_ground else 0
 
@@ -301,8 +304,6 @@ class Character(Entity):
 
     if self.resolve_collision(entities, self.v[0], 0):
       self.v[0] = 0
-
-    self.v = [int(v) for v in self.v]
 
     self.y += self.v[1]
 
