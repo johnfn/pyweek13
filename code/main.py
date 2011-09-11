@@ -1,19 +1,24 @@
 import random
+import sys
+import os
 import pygame
+import pygame.font
 import numpy as N
 import math
 import time
 import spritesheet
-import os
+from rendertext import render_textrect
+
+#TODO: Move to untracted py file so there is no conflicts when someone changes this.
+DEBUG = True
 
 # Convention: directories will always have trailing slash.
-
-DEBUG = False
-
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
-GRAPHICS_DIR = ROOT_DIR + "data/"
-SPRITE_DIR = GRAPHICS_DIR + "sprites/"
-MAP_DIR = GRAPHICS_DIR + "maps/"
+DATA_DIR = ROOT_DIR + "data/"
+SPRITE_DIR = DATA_DIR + "sprites/"
+MAP_DIR = DATA_DIR + "maps/"
+FONT_DIR = DATA_DIR + "fonts/"
+
 GRAVITY = 3
 
 UNCOLORED = 0
@@ -498,12 +503,62 @@ class Graphics:
 
         rgbarray[x][y] = resultant
 
-
     surf.unlock()
     return pygame.surfarray.make_surface(rgbarray).convert()
 
+class FontManager:
+  """Let's not load any particular Font more than once. Yay for memory saving!
+  Again, this isn't a class so much as namespaced functions."""
+
+  fonts = {}
+
+  @staticmethod
+  def get(font_name):
+    if font_name not in FontManager.fonts:
+      FontManager.fonts[font_name] = pygame.font.Font(FONT_DIR + font_name, 14)
+
+    return FontManager.fonts[font_name]
+
+class Text(Entity):
+  """In-game dialog. The current concept is that all dialog will 'follow'
+  something, be it a character, NPC, enemy, etc (so long as it is an Entity).
+  Following an Entity just means that the dialog will appear on top of their
+  head, follow them as they move, etc. I'm not a huge fan of dialog that stops
+  the game from progressing. You should still be able to move around while
+  dialog is being shown. """
+
+  def __init__(self, contents, follow, fontcolor=(255, 254, 255)):
+    Entity.__init__(self, follow.x, follow.y, 200)
+
+    self.width = 200
+    self.height = 30
+    self.contents = contents
+    self.font = FontManager.get("FreeSansBold.ttf")
+    self.fontcolor = fontcolor
+    self.follow = follow
+
+  def update(self, entities):
+    # letter by letter, skip to end if player hits x
+    pass
+
+  def depth(self):
+    return 0
+
+  def render(self, screen):
+    fontrect = pygame.Rect((self.follow.x - self.width / 2, self.follow.y - self.follow.size - self.height, self.width, self.height))
+
+    try:
+      rendered_text = render_textrect(self.contents, self.font, fontrect, self.fontcolor, (255,255,255), justification=1)
+    except TextRectException:
+      print "Failed to render textbox."
+    else:
+      screen.blit(rendered_text, fontrect.topleft)
+
 class Game:
   def __init__(self):
+    pygame.font.init()
+
+
     self.screen = pygame.display.set_mode(SIZE)
 
     self.entities = EntityManager()
@@ -516,6 +571,9 @@ class Game:
     self.map.new_map(self.entities, 0, 0, rel=False)
 
     self.entities.add(self.map)
+
+    self.entities.add(Text("Wazzup?", self.entities.get_one(lambda e: isinstance(e, Character))))
+
     print "Done loading."
 
   def main_loop(self):
@@ -525,7 +583,6 @@ class Game:
           exit(0)
 
       self.entities.update()
-
       self.screen.fill((0,0,0))
       self.entities.render(self.screen)
 
