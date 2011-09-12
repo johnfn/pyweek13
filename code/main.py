@@ -10,7 +10,7 @@ import spritesheet
 from rendertext import render_textrect, TextRectException
 
 #TODO: Move to untracted py file so there is no conflicts when someone changes this.
-DEBUG = True
+DEBUG = False
 
 # Convention: directories will always have trailing slash.
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
@@ -18,6 +18,11 @@ DATA_DIR = ROOT_DIR + "data/"
 SPRITE_DIR = DATA_DIR + "sprites/"
 MAP_DIR = DATA_DIR + "maps/"
 FONT_DIR = DATA_DIR + "fonts/"
+
+RED = 0
+GREEN = 1
+BLUE = 2
+COLORS = 3
 
 GRAVITY = 3
 
@@ -27,6 +32,7 @@ COLORED = 1
 TILE_SIZE = 20
 SIZE = (500, 500)
 MAP_SIZE = 20
+MAP_IN_PX = TILE_SIZE * MAP_SIZE
  
 """ DECORATORS"""
 
@@ -93,6 +99,7 @@ class BigMap:
 
 #TODO: file_name -> just the "name.png" part, not the entire directory, when storing in BigMap.
 def get_tilesheet_image(file_name, pos_x, pos_y, img_sz, saturation):
+  assert(isinstance(saturation, list))
 
   if not get_tilesheet_image.loaded_sheets.has(file_name, pos_x, pos_y, saturation):
     new_sheet = spritesheet.spritesheet(file_name)
@@ -232,6 +239,51 @@ def bound(num, asymptote):
     return a
   return num
 
+class HUDIcon(Entity):
+  """Icon that indicates R, G, or B mutations and whether they are in use or
+  not."""
+
+  def __init__(self, x, y, size, color, character):
+    Entity.__init__(self, x, y, size)
+
+    self.img = Image("hud.png", color, 0, x, y, size, [1,1,1])
+    self.desat_img = Image("hud.png", color, 0, x, y, size, [0,0,0])
+
+    self.character = character
+    self.color = color
+    self.is_saturated = False
+
+  def update(self, entities):
+    self.is_saturated = self.character.colors_on[self.color]
+
+  def render(self, screen):
+    if self.is_saturated:
+      self.img.render(screen)
+    else:
+      self.desat_img.render(screen)
+
+class HeadsUpDisplay(Entity):
+  def __init__(self, character):
+    Entity.__init__(self, 0, 0, MAP_IN_PX)
+
+    self.components = []
+    self.components.append(HPBar(character))
+
+    for x in range(COLORS):
+      self.components.append(HUDIcon((x + 1) * TILE_SIZE, 2 * TILE_SIZE, TILE_SIZE, x, character))
+
+  def update(self, entities):
+    for component in self.components:
+      component.update(entities)
+
+  def render(self, screen):
+    for component in self.components:
+      component.render(screen)
+
+  def depth(self):
+    return 100
+
+
 #@fallable()
 @healthable(5)
 class Character(Entity):
@@ -245,6 +297,9 @@ class Character(Entity):
     self.jump_height = 25
     self.move_speed = 8
     self.swim_speed = 3
+
+    #colors turned on
+    self.colors_on = [False, False, True]
 
     self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE, [UNCOLORED, UNCOLORED, UNCOLORED])
 
@@ -300,7 +355,8 @@ class Character(Entity):
       self.v[0] = bound(self.v[0], self.move_speed)
 
     self.v[1] -= keys[pygame.K_z] * self.jump_height if self.on_ground else 0
-    if self.in_water(entities):
+
+    if self.in_water(entities) and self.colors_on[BLUE]:
       self.v[1] += self.swim_speed * (keys[pygame.K_DOWN] - keys[pygame.K_UP])
       self.v[1] *= .6 #decel
     else:
@@ -330,6 +386,17 @@ class Character(Entity):
       self.v[1] = 0
 
     self.sprite.set_position((self.x,self.y))
+
+    self.check_mutations(keys)
+
+  def check_mutations(self, keys):
+    key_map = {pygame.K_a : RED, pygame.K_s : GREEN, pygame.K_d : BLUE}
+
+    for key in key_map:
+      value = key_map[key]
+
+      if KeysReleased.was_up(key):
+        self.colors_on[value] = 1 - self.colors_on[value]
 
   def render(self, screen):
     self.sprite.render(screen)
@@ -628,14 +695,13 @@ class Game:
 
     character = Character(21, 20, TILE_SIZE)
     self.entities.add(character)
-    hpbar = HPBar(character)
-    self.entities.add(hpbar)
     self.map = Map(TILE_SIZE, MAP_SIZE, "map.png")
     self.map.new_map(self.entities, 0, 0, rel=False)
 
     self.entities.add(self.map)
+    self.entities.add(HeadsUpDisplay(character))
 
-    self.entities.add(TextChain(["Wazzup? This text is long like longcat.", "This one isn't", "This dialog is amazing isnt it."], self.entities.get_one(lambda e: isinstance(e, Character))))
+    #self.entities.add(TextChain(["Wazzup? This text is long like longcat.", "This one isn't", "This dialog is amazing isnt it."], self.entities.get_one(lambda e: isinstance(e, Character))))
 
     print "Done loading."
 
