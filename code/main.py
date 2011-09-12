@@ -523,7 +523,7 @@ class FontManager:
 
     return FontManager.fonts[font_name]
 
-class Text(Entity):
+class TextChain(Entity):
   """In-game dialog. The current concept is that all dialog will 'follow'
   something, be it a character, NPC, enemy, etc (so long as it is an Entity).
   Following an Entity just means that the dialog will appear on top of their
@@ -536,7 +536,8 @@ class Text(Entity):
 
     self.width = 200
     self.height = 60
-    self.end_contents = contents
+    self.end_contents = contents.pop(0)
+    self.rest_contents = contents
     self.cur_contents = ""
     self.font = FontManager.get("FreeSansBold.ttf")
     self.fontcolor = fontcolor
@@ -549,19 +550,20 @@ class Text(Entity):
   def update(self, entities):
     # letter by letter, skip to end if player hits x
 
-    keys = pygame.key.get_pressed()
     if self.dist < len(self.end_contents):
       self.ticks += 1
       if self.ticks % self.speed == 0:
         self.dist += 1 
 
-      if keys[pygame.K_x]:
+      if KeysReleased.was_up(pygame.K_x):
         self.dist = len(self.end_contents)
 
       self.cur_contents = self.end_contents[:self.dist]
     else:
-      if keys[pygame.K_x]:
+      if KeysReleased.was_up(pygame.K_x):
         entities.delete(self)
+        if len(self.rest_contents) > 0:
+          entities.add(TextChain(self.rest_contents, self.follow, self.fontcolor))
 
   def depth(self):
     return 0
@@ -576,10 +578,37 @@ class Text(Entity):
     else:
       screen.blit(rendered_text, fontrect.topleft)
 
+class KeysReleased:
+  """KeysReleased.was_up(pygame.K_somekey) will be true if and only if the
+  player has released the specified key in the last game tick. This is
+  important for doing actions that the player doesn't want to do several times
+  in a row for one reason or another. A good example of this is dialog. You
+  dont want the playter to accidentally hold down the x key for 5 ticks and
+  miss a ton of important stuff. The fact that dialog shouldn't be important is
+  besides the point."""
+
+  keys = {}
+
+  @staticmethod
+  def key_up(key):
+    KeysReleased.keys[key] = True
+
+  @staticmethod
+  def was_up(key):
+    if key in KeysReleased.keys:
+      prev_val = KeysReleased.keys[key]
+      KeysReleased.keys[key] = False
+      return prev_val
+    else:
+      return False
+
+  @staticmethod
+  def flush():
+    keys = {}
+
 class Game:
   def __init__(self):
     pygame.font.init()
-
 
     self.screen = pygame.display.set_mode(SIZE)
 
@@ -594,7 +623,7 @@ class Game:
 
     self.entities.add(self.map)
 
-    self.entities.add(Text("Wazzup? This text is long like longcat.", self.entities.get_one(lambda e: isinstance(e, Character))))
+    self.entities.add(TextChain(["Wazzup? This text is long like longcat.", "This one isn't", "This dialog is amazing isnt it."], self.entities.get_one(lambda e: isinstance(e, Character))))
 
     print "Done loading."
 
@@ -603,6 +632,8 @@ class Game:
       for event in pygame.event.get():
         if event.type == pygame.QUIT:
           exit(0)
+        if event.type == pygame.KEYUP:
+          KeysReleased.key_up(event.key)
 
       self.entities.update()
       self.screen.fill((0,0,0))
@@ -610,6 +641,8 @@ class Game:
 
       pygame.display.flip()
       time.sleep(.02) #TODO: Fix with variable timestep.
+
+      KeysReleased.flush()
 
 def main():
   game = Game()
