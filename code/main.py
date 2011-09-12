@@ -232,7 +232,7 @@ def bound(num, asymptote):
     return a
   return num
 
-@fallable()
+#@fallable()
 @healthable(5)
 class Character(Entity):
   def __init__(self, x, y, size):
@@ -244,8 +244,9 @@ class Character(Entity):
     self.decel = [ 0.6, 1 ]
     self.jump_height = 25
     self.move_speed = 8
+    self.swim_speed = 3
 
-    self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE, [COLORED, UNCOLORED, UNCOLORED])
+    self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE, [UNCOLORED, UNCOLORED, UNCOLORED])
 
   def touching_wall(self, entities):
     return len(entities.get_all(lambda e: hasattr(e, "wall") and self.touches_entity(e))) > 0
@@ -260,6 +261,9 @@ class Character(Entity):
         return True
 
     return False
+
+  def in_water(self, entities):
+    return len(entities.get_all(lambda e: hasattr(e, "water") and e.water and self.touches_entity(e))) > 0
 
   def resolve_collision(self, entities, vx, vy):
     assert not (vx != 0 and vy != 0) #Doing both at once is bad!
@@ -296,6 +300,11 @@ class Character(Entity):
       self.v[0] = bound(self.v[0], self.move_speed)
 
     self.v[1] -= keys[pygame.K_z] * self.jump_height if self.on_ground else 0
+    if self.in_water(entities):
+      self.v[1] += self.swim_speed * (keys[pygame.K_DOWN] - keys[pygame.K_UP])
+      self.v[1] *= .6 #decel
+    else:
+      self.v[1] += GRAVITY
 
     self.x += self.v[0]
 
@@ -330,11 +339,14 @@ class Character(Entity):
 
 class Tile(Entity):
   def type_to_image(self, type):
-    if type[0] == 0:
+    if type == (0, 0, 0):
       self.wall = True
       return Image("tiles.png", 1, 0, 30, 30, TILE_SIZE)
-    elif type[0] == 255:
+    elif type == (255, 255, 255):
       return Image("tiles.png", 0, 1, 30, 30, TILE_SIZE)
+    elif type == (0, 0, 255):
+      self.water = True
+      return Image("tiles.png", 1, 1, 30, 30, TILE_SIZE)
     else:
       raise NoSuchTileException
 
