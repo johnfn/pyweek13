@@ -87,7 +87,6 @@ def sign(x):
   if x < 0: return -1
   return 0
 
-
 class BigMap:
   def __init__(self):
     self.contents = {}
@@ -222,6 +221,9 @@ class Entity(object):
   def has(cls, a):
     return a in cls.components
 
+  def in_bounds(self):
+    return self.x >= 0 and self.x <= MAP_IN_PX and self.y >= 0 and self.y <= MAP_IN_PX
+
   def touches_point(self, point):
     return self.x <= point.x <= self.x + self.size and\
            self.y <= point.y <= self.y + self.size
@@ -301,8 +303,10 @@ class Fireball(Entity):
 
     self.img.set_position((self.x, self.y))
 
-    if len(entities.get_all(lambda e: hasattr(e, "wall") and e.wall and e.touches_entity(self))) > 0:
-      print "bye"
+    if len(entities.get_all(lambda e: hasattr(e, "wall") and e.wall and self.touches_entity(e))) > 0:
+      entities.delete(self)
+
+    if not self.in_bounds():
       entities.delete(self)
   
   def depth(self):
