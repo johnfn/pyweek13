@@ -19,10 +19,17 @@ SPRITE_DIR = DATA_DIR + "sprites/"
 MAP_DIR = DATA_DIR + "maps/"
 FONT_DIR = DATA_DIR + "fonts/"
 
+# some Enums that I haven't bothered to namespace (yet)
+
 RED = 0
 GREEN = 1
 BLUE = 2
 COLORS = 3
+
+LEFT = [-1, 0]
+RIGHT = [1, 0]
+UP = [0, -1]
+DOWN = [0, 1]
 
 GRAVITY = 3
 
@@ -125,7 +132,6 @@ def get_tilesheet_image(file_name, pos_x, pos_y, img_sz, saturation):
 
 get_tilesheet_image.loaded_sheets = BigMap()
 
-# Expect this class to get bigger. Lol.
 class Image:
   """An image that exists in the current room. """
   def __init__(self, file_name, file_pos_x, file_pos_y, my_x, my_y, img_sz, saturation=None):
@@ -140,6 +146,23 @@ class Image:
     self.rect = self.img.get_rect()
     self.rect.x = my_x
     self.rect.y = my_y
+
+  def xget(self):
+    return self.rect.x
+  
+  def xset(self, value):
+    print "ok..."
+    self.rect.x = value
+
+  x = property(xget, xset)
+
+  @property
+  def y(self):
+    return self.rect.y
+
+  @y.setter
+  def y(self, value):
+    self.rect.y = value
 
   def get_position(self):
     return (self.rect.x, self.rect.y)
@@ -262,6 +285,32 @@ class HUDIcon(Entity):
     else:
       self.desat_img.render(screen)
 
+class Fireball(Entity):
+  def __init__(self, creator, direction):
+    Entity.__init__(self, creator.x, creator.y, TILE_SIZE / 4)
+
+    self.img = Image("sprites.png", 0, 1, self.x, self.y, TILE_SIZE, [UNCOLORED, UNCOLORED, UNCOLORED])
+    self.speed = 5
+
+    self.dx, self.dy = [delta * self.speed for delta in direction]
+    print self.dx, self.dy
+
+  def update(self, entities):
+    self.x += self.dx
+    self.y += self.dy
+
+    self.img.set_position((self.x, self.y))
+
+    if len(entities.get_all(lambda e: hasattr(e, "wall") and e.wall and e.touches_entity(self))) > 0:
+      print "bye"
+      entities.delete(self)
+  
+  def depth(self):
+    return 10
+
+  def render(self, screen):
+    self.img.render(screen)
+
 class HeadsUpDisplay(Entity):
   def __init__(self, character):
     Entity.__init__(self, 0, 0, MAP_IN_PX)
@@ -295,6 +344,7 @@ class Character(Entity):
   def __init__(self, x, y, size):
     Entity.__init__(self, x, y, size - 2)
 
+    self.direction = LEFT #arbitrarily choose a starting direction
     self.on_ground = False
     self.side_accel = .5
     self.side_max   = 5
@@ -345,9 +395,26 @@ class Character(Entity):
       vx -= sign(vx)
 
     return had_collision
+  
+  def update_facing_position(self, keys):
+    if keys[pygame.K_RIGHT]:
+      self.direction = RIGHT
+    elif keys[pygame.K_LEFT]:
+      self.direction = LEFT
+    elif keys[pygame.K_UP]:
+      self.direction = UP
+    elif keys[pygame.K_DOWN]:
+      self.direction = DOWN
+
+  def do_action(self, entities):
+    if self.colors_on[RED]:
+      entities.add(Fireball(self, self.direction))
 
   def update(self, entities):
     keys = pygame.key.get_pressed()
+    self.update_facing_position(keys)
+    if keys[pygame.K_x]:
+      self.do_action(entities)
 
     map = entities.get_one(lambda e: isinstance(e, Map))
 
