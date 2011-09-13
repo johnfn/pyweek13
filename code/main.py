@@ -265,6 +265,7 @@ class HUDIcon(Entity):
 class HeadsUpDisplay(Entity):
   def __init__(self, character):
     Entity.__init__(self, 0, 0, MAP_IN_PX)
+    self.width = self.height = MAP_IN_PX
 
     self.components = []
     self.components.append(HPBar(character))
@@ -272,9 +273,13 @@ class HeadsUpDisplay(Entity):
     for x in range(COLORS):
       self.components.append(HUDIcon((x + 1) * TILE_SIZE, 2 * TILE_SIZE, TILE_SIZE, x, character))
 
+    self.action_text = ActionText(character, self.width - 200, TILE_SIZE)
+    self.components.append(self.action_text)
+
   def update(self, entities):
     for component in self.components:
       component.update(entities)
+
 
   def render(self, screen):
     for component in self.components:
@@ -396,7 +401,7 @@ class Character(Entity):
       value = key_map[key]
 
       if KeysReleased.was_up(key):
-        self.colors_on[value] = 1 - self.colors_on[value]
+        self.colors_on[value] = not self.colors_on[value]
 
   def render(self, screen):
     self.sprite.render(screen)
@@ -601,6 +606,48 @@ class FontManager:
       FontManager.fonts[font_name] = pygame.font.Font(FONT_DIR + font_name, 14)
 
     return FontManager.fonts[font_name]
+
+class ActionText(Entity):
+  def __init__(self, follow, x, y):
+    self.text = StaticText("Press X to Die.", x, y)
+    self.follow = follow
+
+  def update(self, entities):
+    if self.follow.colors_on[RED]:
+      self.text.set_text("Press X to FIREBALL.")
+    else:
+      self.text.set_text("Press X to Die.")
+
+  def render(self, screen):
+    self.text.render(screen)
+
+class StaticText(Entity):
+  """This is text that just stays in one place forever."""
+
+  def __init__(self, contents, x, y):
+    Entity.__init__(self, x, y, 200)
+
+    self.width = 200
+    self.height = 60
+    self.contents = contents
+    self.font = FontManager.get("nokiafc22.ttf")
+    self.fontcolor = (254, 255, 255)
+
+  def set_text(self, new_text):
+    self.contents = new_text
+
+  def update(self, entities):
+    pass
+
+  def render(self, screen):
+    fontrect = pygame.Rect((self.x, self.y, self.width, self.height))
+
+    try:
+      rendered_text = render_textrect(self.contents, self.font, fontrect, self.fontcolor, (255,255,255), justification=1)
+    except TextRectException:
+      print "Failed to render textbox."
+    else:
+      screen.blit(rendered_text, fontrect.topleft)
 
 class TextChain(Entity):
   """In-game dialog. The current concept is that all dialog will 'follow'
