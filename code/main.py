@@ -159,14 +159,15 @@ class EntityManager:
 
   def add(self, entity):
     self.entities.append(entity)
-    # Sort by depth, if the entities have it.
-    self.entities = sorted(self.entities, key=lambda entity: entity.depth() if hasattr(entity, 'depth') else -99999)
 
   def update(self):
     for entity in self.entities:
       entity.update(self)
 
   def render(self, screen):
+    # Sort by depth, if the entities have it.
+    self.entities = sorted(self.entities, key=lambda entity: entity.depth() if hasattr(entity, 'depth') else -99999)
+
     for entity in self.entities:
       entity.render(screen)
 
