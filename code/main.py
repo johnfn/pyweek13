@@ -10,7 +10,7 @@ import spritesheet
 from rendertext import render_textrect, TextRectException
 
 #TODO: Move to untracted py file so there is no conflicts when someone changes this.
-DEBUG = False
+DEBUG = True
 
 # Convention: directories will always have trailing slash.
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
@@ -618,7 +618,7 @@ class TextChain(Entity):
     self.end_contents = contents.pop(0)
     self.rest_contents = contents
     self.cur_contents = ""
-    self.font = FontManager.get("FreeSansBold.ttf")
+    self.font = FontManager.get("nokiafc22.ttf")
     self.fontcolor = fontcolor
     self.follow = follow
     self.dist = 0
@@ -701,7 +701,7 @@ class Game:
     self.entities.add(self.map)
     self.entities.add(HeadsUpDisplay(character))
 
-    #self.entities.add(TextChain(["Wazzup? This text is long like longcat.", "This one isn't", "This dialog is amazing isnt it."], self.entities.get_one(lambda e: isinstance(e, Character))))
+    self.entities.add(TextChain(["Wazzup? This text is long like longcat.", "This one isn't", "This dialog is amazing isnt it."], self.entities.get_one(lambda e: isinstance(e, Character))))
 
     print "Done loading."
 
