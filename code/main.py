@@ -363,7 +363,7 @@ class Character(Entity):
     self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE, [UNCOLORED, UNCOLORED, UNCOLORED])
 
   def touching_wall(self, entities):
-    return len(entities.get_all(lambda e: hasattr(e, "wall") and self.touches_entity(e))) > 0
+    return len(entities.get_all(lambda e: hasattr(e, "wall") and e.wall and self.touches_entity(e))) > 0
 
   def touching_ground(self, entities):
     feet = [ Point(self.x +             2, self.y + self.size)
@@ -371,7 +371,7 @@ class Character(Entity):
            ]
 
     for foot in feet:
-      if len(entities.get_all(lambda e: hasattr(e, "wall") and e.touches_point(foot))) > 0:
+      if len(entities.get_all(lambda e: hasattr(e, "wall") and e.wall and e.touches_point(foot))) > 0:
         return True
 
     return False
@@ -463,9 +463,18 @@ class Character(Entity):
 
     self.sprite.set_position((self.x,self.y))
 
-    self.check_mutations(keys)
+    self.check_mutations(keys, entities)
 
-  def check_mutations(self, keys):
+
+  def just_mutated(self, color, new_value, entities):
+    # Toggle red platforms.
+    # Eh, I get the feeling like this shouldn't be tangled up in Character...
+    if color == RED:
+      red_platforms = entities.get_all(lambda e: hasattr(e, "redplatform") and e.redplatform)
+      for platform in red_platforms:
+        platform.wall = not platform.wall
+
+  def check_mutations(self, keys, entities):
     key_map = {pygame.K_a : RED, pygame.K_s : GREEN, pygame.K_d : BLUE}
 
     for key in key_map:
@@ -473,6 +482,8 @@ class Character(Entity):
 
       if KeysReleased.was_up(key):
         self.colors_on[value] = not self.colors_on[value]
+
+        self.just_mutated(value, self.colors_on[value], entities)
 
   def render(self, screen):
     self.sprite.render(screen)
@@ -489,6 +500,10 @@ class Tile(Entity):
       return Image("tiles.png", 0, 1, 30, 30, TILE_SIZE)
     elif type == (0, 0, 255):
       self.water = True
+      return Image("tiles.png", 1, 1, 30, 30, TILE_SIZE)
+    elif type == (255, 0, 0):
+      self.redplatform = True
+      self.wall = True
       return Image("tiles.png", 1, 1, 30, 30, TILE_SIZE)
     else:
       raise NoSuchTileException
