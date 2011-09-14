@@ -9,7 +9,7 @@ import spritesheet
 from rendertext import render_textrect, TextRectException
 
 #TODO: Move to untracted py file so there is no conflicts when someone changes this.
-DEBUG = True
+DEBUG = False
 
 # Convention: directories will always have trailing slash.
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
@@ -650,34 +650,19 @@ class Graphics:
     only the desired color channels visible. R,G,B should only be 0 or 1."""
 
     #GOD this method is slow.
-    if DEBUG:
+    if DEBUG or min(rgb) == 1:
       return surf
 
-    dr, dg, db = rgb # desaturation values.
+    r, g, b = rgb
 
-    surf.lock()
-
-    rgbimg = pygame.surfarray.array3d(surf)
-    rgbarray = N.array(rgbimg)
-
-    #TODO: Cite source.
-
-    for x, s in enumerate(rgbarray):
-      for y, t in enumerate(s):
-        r, g, b = t
-        lum = int(0.3 * r + 0.59 * g + 0.11 * b)
-
-        resultant = []
-        for desat_val, actual_val in zip(rgb, t):
-          if desat_val == UNCOLORED:
-            resultant.append(lum)
-          else:
-            resultant.append(actual_val)
-
-        rgbarray[x][y] = resultant
-
-    surf.unlock()
-    return pygame.surfarray.make_surface(rgbarray).convert()
+    colored = pygame.Surface(surf.get_size(), 0, 8)
+    colored.set_palette([(i*r,i*g,i*b) for i in xrange(256)])
+    for j in xrange(surf.get_height()):
+      for i in xrange(surf.get_width()):
+        val = surf.get_at((i,j))
+        val = (val[0] + val[1] + val[2])/3
+        colored.set_at((i, j), (val,val,val))
+    return colored.convert()
 
 class FontManager:
   """Let's not load any particular Font more than once. Yay for memory saving!
