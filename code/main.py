@@ -5,7 +5,6 @@ import pygame
 import pygame.font
 import numpy as N
 import math
-import time
 import spritesheet
 from rendertext import render_textrect, TextRectException
 
@@ -836,6 +835,7 @@ class Game:
 
     self.entities.add(TextChain(["Wazzup? This text is long like longcat.", "This one isn't", "This dialog is amazing isnt it."], self.entities.get_one(lambda e: isinstance(e, Character))))
 
+    self.clock = pygame.time.Clock()
     print "Done loading."
 
   def main_loop(self):
@@ -851,7 +851,7 @@ class Game:
       self.entities.render(self.screen)
 
       pygame.display.flip()
-      time.sleep(.02) #TODO: Fix with variable timestep.
+      self.clock.tick(24)
 
       KeysReleased.flush()
 
