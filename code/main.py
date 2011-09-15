@@ -389,13 +389,13 @@ class Character(Entity):
 
     while self.touching_wall(entities) and abs(vy) > 0:
       had_collision = True
-      self.y -= sign(vy)
-      vy -= sign(vy)
+      self.y -= bound(vy, 1)
+      vy -= bound(vy, 1)
 
     while self.touching_wall(entities) and abs(vx) > 0:
       had_collision = True
-      self.x -= sign(vx)
-      vx -= sign(vx)
+      self.x -= bound(vx, 1)
+      vx -= bound(vx, 1)
 
     return had_collision
   
