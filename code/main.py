@@ -39,6 +39,9 @@ TILE_SIZE = 20
 SIZE = (500, 500)
 MAP_SIZE = 20
 MAP_IN_PX = TILE_SIZE * MAP_SIZE
+
+# global saturation var (so ugly)
+g_saturation = [ COLORED, COLORED, COLORED ]
  
 """ DECORATORS"""
 
@@ -134,7 +137,7 @@ class Image:
   """An image that exists in the current room. """
   def __init__(self, file_name, file_pos_x, file_pos_y, my_x, my_y, img_sz, saturation=None):
     if saturation is None:
-      saturation = [COLORED, UNCOLORED, UNCOLORED]
+      saturation = [COLORED, COLORED, COLORED]
 
     assert(isinstance(saturation, list))
 
@@ -290,7 +293,8 @@ class Fireball(Entity):
   def __init__(self, creator, direction):
     Entity.__init__(self, creator.x, creator.y, TILE_SIZE / 4)
 
-    self.img = Image("sprites.png", 0, 1, self.x, self.y, TILE_SIZE, [UNCOLORED, UNCOLORED, UNCOLORED])
+    global g_saturation
+    self.img = Image("sprites.png", 0, 1, self.x, self.y, TILE_SIZE, g_saturation)
     self.speed = 5
 
     self.dx, self.dy = [delta * self.speed for delta in direction]
@@ -359,7 +363,7 @@ class Character(Entity):
     #colors turned on
     self.colors_on = [False, False, True]
 
-    self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE, [UNCOLORED, UNCOLORED, UNCOLORED])
+    self.sprite = Image("tiles.png", 0, 0, self.x, self.y, TILE_SIZE, g_saturation)
 
   def touching_wall(self, entities):
     return len(entities.get_all(lambda e: hasattr(e, "wall") and e.wall and self.touches_entity(e))) > 0
@@ -473,6 +477,7 @@ class Character(Entity):
       for platform in red_platforms:
         platform.wall = not platform.wall
 
+
   def check_mutations(self, keys, entities):
     key_map = {pygame.K_a : RED, pygame.K_s : GREEN, pygame.K_d : BLUE}
 
@@ -484,6 +489,10 @@ class Character(Entity):
 
         self.just_mutated(value, self.colors_on[value], entities)
 
+        # change view of game
+        global g_saturation
+        g_saturation = [COLORED if b else UNCOLORED for b in self.colors_on]
+
   def render(self, screen):
     self.sprite.render(screen)
 
@@ -492,18 +501,19 @@ class Character(Entity):
 
 class Tile(Entity):
   def type_to_image(self, type):
+    global g_saturation
     if type == (0, 0, 0):
       self.wall = True
-      return Image("tiles.png", 1, 0, 30, 30, TILE_SIZE)
+      return Image("tiles.png", 1, 0, 30, 30, TILE_SIZE, g_saturation)
     elif type == (255, 255, 255):
-      return Image("tiles.png", 0, 1, 30, 30, TILE_SIZE)
+      return Image("tiles.png", 0, 1, 30, 30, TILE_SIZE, g_saturation)
     elif type == (0, 0, 255):
       self.water = True
-      return Image("tiles.png", 1, 1, 30, 30, TILE_SIZE)
+      return Image("tiles.png", 1, 1, 30, 30, TILE_SIZE, g_saturation)
     elif type == (255, 0, 0):
       self.redplatform = True
       self.wall = True
-      return Image("tiles.png", 1, 1, 30, 30, TILE_SIZE)
+      return Image("tiles.png", 1, 1, 30, 30, TILE_SIZE, g_saturation)
     else:
       raise NoSuchTileException
 
